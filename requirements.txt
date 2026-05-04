@@ -1,11 +1,8 @@
 chainlit
 loguru
-funasr
-faster_whisper
-modelscope
-torchaudio
-openai
-langchain
+groq
+pydub
+python-dotenv
 asyncpg
 sqlalchemy[asyncio]
 sqlalchemy_utils

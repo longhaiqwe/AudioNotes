@@ -2,8 +2,9 @@ import os
 import uuid
 from typing import Union, Dict, Any
 from loguru import logger
-import chainlit.data as cl_data
+import chainlit as cl
 from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
+from chainlit.data.storage_clients.base import BaseStorageClient
 import psycopg2
 from psycopg2 import sql
 
@@ -16,27 +17,47 @@ db_host = os.getenv("POSTGRES_HOST", "localhost")
 db_port = os.getenv("POSTGRES_PORT", "5432")
 
 
-class StorageClient(cl_data.BaseStorageClient):
-    def __init__(self, bucket: str = ""):
-        try:
-            self.bucket = bucket
-            logger.info("StorageClient initialized")
-        except Exception as e:
-            logger.warning(f"StorageClient initialization error: {e}")
+class LocalStorageClient(BaseStorageClient):
+    """将上传文件保存到本地磁盘的存储客户端。"""
 
-    async def upload_file(self, object_key: str, data: Union[bytes, str], mime: str = 'application/octet-stream',
-                          overwrite: bool = True) -> Dict[str, Any]:
+    def __init__(self):
+        logger.info("LocalStorageClient initialized")
+
+    async def upload_file(
+        self,
+        object_key: str,
+        data: Union[bytes, str],
+        mime: str = "application/octet-stream",
+        overwrite: bool = True,
+        content_disposition: str | None = None,
+    ) -> Dict[str, Any]:
         try:
             filename = str(uuid.uuid4())
             extname = os.path.splitext(object_key)[1].lower()
-            object_key = filename + extname
-            file_path = os.path.join(utils.upload_dir(), object_key)
-            with open(file_path, 'wb') as f:
-                f.write(data)
-            return {"object_key": object_key, "url": f"/uploads/{object_key}"}
+            new_key = filename + extname
+            file_path = os.path.join(utils.upload_dir(), new_key)
+            with open(file_path, "wb") as f:
+                f.write(data if isinstance(data, bytes) else data.encode())
+            return {"object_key": new_key, "url": f"/uploads/{new_key}"}
         except Exception as e:
-            logger.warning(f"StorageClient, upload_file error: {e}")
+            logger.warning(f"LocalStorageClient.upload_file error: {e}")
             return {}
+
+    async def delete_file(self, object_key: str) -> bool:
+        try:
+            file_path = os.path.join(utils.upload_dir(), object_key)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return True
+        except Exception as e:
+            logger.warning(f"LocalStorageClient.delete_file error: {e}")
+            return False
+
+    async def get_read_url(self, object_key: str) -> str:
+        return f"/uploads/{object_key}"
+
+    async def close(self) -> None:
+        pass
 
 
 def get_connection_url(driver: str = "asyncpg"):
@@ -58,6 +79,27 @@ def __init_db():
         cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
         cur.close()
         conn.close()
+
+def __migrate_tables():
+    sql = '''
+ALTER TABLE steps ADD COLUMN IF NOT EXISTS "command" TEXT;
+ALTER TABLE steps ADD COLUMN IF NOT EXISTS "modes" JSONB;
+ALTER TABLE steps ADD COLUMN IF NOT EXISTS "defaultOpen" BOOLEAN;
+ALTER TABLE steps ADD COLUMN IF NOT EXISTS "autoCollapse" BOOLEAN;
+ALTER TABLE steps ADD COLUMN IF NOT EXISTS "icon" TEXT;
+ALTER TABLE steps ALTER COLUMN "disableFeedback" SET DEFAULT FALSE;
+ALTER TABLE steps ALTER COLUMN "streaming" SET DEFAULT FALSE;
+
+ALTER TABLE elements ADD COLUMN IF NOT EXISTS "props" TEXT;
+ALTER TABLE elements ADD COLUMN IF NOT EXISTS "autoPlay" BOOLEAN;
+ALTER TABLE elements ADD COLUMN IF NOT EXISTS "playerConfig" JSONB;
+    '''
+    conn = psycopg2.connect(dbname=db_name, user=db_user, password=db_password, host=db_host, port=db_port)
+    cur = conn.cursor()
+    cur.execute(sql)
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 def __init_tables():
@@ -86,8 +128,10 @@ CREATE TABLE IF NOT EXISTS steps (
     "type" TEXT NOT NULL,
     "threadId" UUID NOT NULL,
     "parentId" UUID,
-    "disableFeedback" BOOLEAN NOT NULL,
-    "streaming" BOOLEAN NOT NULL,
+    "command" TEXT,
+    "modes" JSONB,
+    "disableFeedback" BOOLEAN NOT NULL DEFAULT FALSE,
+    "streaming" BOOLEAN NOT NULL DEFAULT FALSE,
     "waitForAnswer" BOOLEAN,
     "isError" BOOLEAN,
     "metadata" JSONB,
@@ -99,7 +143,10 @@ CREATE TABLE IF NOT EXISTS steps (
     "end" TEXT,
     "generation" JSONB,
     "showInput" TEXT,
+    "defaultOpen" BOOLEAN,
+    "autoCollapse" BOOLEAN,
     "language" TEXT,
+    "icon" TEXT,
     "indent" INT
 );
 
@@ -113,7 +160,10 @@ CREATE TABLE IF NOT EXISTS elements (
     "display" TEXT,
     "objectKey" TEXT,
     "size" TEXT,
+    "props" TEXT,
     "page" INT,
+    "autoPlay" BOOLEAN,
+    "playerConfig" JSONB,
     "language" TEXT,
     "forId" UUID,
     "mime" TEXT
@@ -137,6 +187,12 @@ CREATE TABLE IF NOT EXISTS feedbacks (
 def init():
     __init_db()
     __init_tables()
-    cl_data._data_layer = SQLAlchemyDataLayer(conninfo=get_connection_url(),
-                                              storage_provider=StorageClient(),
-                                              show_logger=False)
+    __migrate_tables()
+
+    @cl.data_layer
+    def _get_data_layer():
+        return SQLAlchemyDataLayer(
+            conninfo=get_connection_url(),
+            storage_provider=LocalStorageClient(),
+            show_logger=False,
+        )

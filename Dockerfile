@@ -21,4 +21,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Command to run the application
-CMD ["chainlit", "run", "./main.py","-w","--port","15433"]
+CMD ["chainlit", "run", "./main.py", "--host", "0.0.0.0", "--port", "15433"]

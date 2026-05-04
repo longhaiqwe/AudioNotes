@@ -3,12 +3,12 @@ import uuid
 import asyncio
 import chainlit as cl
 from io import BytesIO
-from chainlit import ThreadDict
+from chainlit.types import ThreadDict
 from chainlit.element import ElementBased
 from loguru import logger
 from app.services import data_layer
-from app.services.asr_funasr import funasr
-from app.services.ollama import chat_with_ollama
+from app.services.asr_groq import groq_asr
+from app.services.groq_llm import chat_with_groq
 
 from app.utils import utils
 
@@ -53,7 +53,7 @@ async def on_chat_start():
     async def transcribe_file(uploaded_file):
         await msg.stream_token(f"文件 《{uploaded_file.name}》 上传成功, 识别中...\n")
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, funasr.transcribe, uploaded_file.path)
+        result = await loop.run_in_executor(None, groq_asr.transcribe, uploaded_file.path)
         await msg.stream_token(f"## 识别结果 \n{result}\n")
         return result
 
@@ -67,7 +67,7 @@ async def on_chat_start():
             await msg.stream_token(content)
 
         await msg.stream_token("## 整理笔记\n\n")
-        await chat_with_ollama(messages, callback=on_message)
+        await chat_with_groq(messages, callback=on_message)
 
     asr_result = await transcribe_file(file)
     await summarize_notes(asr_result)
@@ -75,7 +75,7 @@ async def on_chat_start():
 
 
 @cl.on_audio_chunk
-async def on_audio_chunk(chunk: cl.AudioChunk):
+async def on_audio_chunk(chunk: cl.InputAudioChunk):
     if chunk.isStart:
         buffer = BytesIO()
         buffer.name = f"input_audio.{chunk.mimeType.split('/')[1]}"
@@ -92,7 +92,8 @@ async def on_audio_end(elements: list[ElementBased]):
     with open(file_path, "wb") as f:
         f.write(audio_buffer.read())
 
-    result = funasr.transcribe(file_path)
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, groq_asr.transcribe, file_path)
     await cl.Message(
         content=result,
         type="user_message",
@@ -116,7 +117,7 @@ async def chat():
     async def on_message(content):
         await msg.stream_token(content)
 
-    await chat_with_ollama(messages, callback=on_message)
+    await chat_with_groq(messages, callback=on_message)
     await msg.send()
 
 

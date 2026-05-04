@@ -1,0 +1,16 @@
+.env
+.chainlit/
+__pycache__/
+*.py[cod]
+*$py.class
+
+storage/
+postgresql/
+modelscope/
+
+.venv/
+venv/
+env/
+
+.DS_Store
+Thumbs.db

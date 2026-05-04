@@ -1,11 +1,10 @@
 services:
   webui:
-    image: harryliu888/audio-notes
+    build: .
     container_name: audio_notes_webui
     ports:
       - 15433:15433
     volumes:
-      - ./modelscope:/root/.cache/modelscope
       - ./storage:/app/storage
     restart: always
     networks:
@@ -14,19 +13,19 @@ services:
       # 登录账号
       - USERNAME=admin
       - PASSWORD=admin
+      - CHAINLIT_AUTH_SECRET=${CHAINLIT_AUTH_SECRET}
       # 数据库配置(需要与下面pg服务的配置一致)
       - POSTGRES_USER=username
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=audio_notes
       - POSTGRES_HOST=pg
-      # ollama配置
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
-      - OLLAMA_MODEL=qwen2:7b
-      - OLLAMA_API_KEY=ollama
+      # Groq 配置
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_WHISPER_MODEL=${GROQ_WHISPER_MODEL:-whisper-large-v3-turbo}
+      - GROQ_WHISPER_LANGUAGE=${GROQ_WHISPER_LANGUAGE:-zh}
+      - GROQ_LLM_MODEL=${GROQ_LLM_MODEL:-llama-3.3-70b-versatile}
     depends_on:
       - pg
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
   pg:
     image: postgres:12.19-bullseye
     container_name: audio_notes_pg

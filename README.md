@@ -1,12 +1,13 @@
 # AudioNotes
 
-## 基于 FunASR 和 Qwen2 构建的音视频转结构化笔记系统
+## 基于 Groq Whisper 和 Groq LLM 构建的音视频转结构化笔记系统
 
 能够快速提取音视频的内容，并且调用大模型进行整理，成为一份结构化的markdown笔记，方便快速阅读
 
-FunASR: https://github.com/modelscope/FunASR
+- **ASR**：Groq Whisper API（`whisper-large-v3-turbo`）
+- **LLM**：Groq Chat API（`llama-3.3-70b-versatile`）
 
-Qwen2: https://ollama.com/library/qwen2
+Groq Cloud: https://console.groq.com
 
 ## 效果展示
 
@@ -20,21 +21,11 @@ Qwen2: https://ollama.com/library/qwen2
 
 ## 使用方法
 
-### ① 安装 Ollama
+### ① 获取 Groq API Key
 
-下载对应系统的 Ollama 安装包进行安装
+前往 https://console.groq.com/keys 注册并创建 API Key（免费）
 
-https://ollama.com/download
-
-### ② 拉取模型
-
-我以 `阿里的千问2 7b` 为例 https://ollama.com/library/qwen2
-
-```bash
-ollama pull qwen2:7b
-```
-
-### ③ 部署服务
+### ② 部署服务
 
 有两种部署方式，一种是使用 Docker 部署，另一种是本地部署
 
