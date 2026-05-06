@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     libgomp1 ffmpeg\
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install Python dependencies for all supported providers
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Now copy the rest of the codebase into the image

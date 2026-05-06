@@ -23,6 +23,8 @@ async def chat_with_ollama(messages: list[dict], callback=None):
     full_content = ""
     for chunk in response:
         content = chunk.choices[0].delta.content
-        await callback(content)
-        full_content += content
+        if content:
+            if callback:
+                await callback(content)
+            full_content += content
     return full_content

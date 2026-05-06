@@ -1,0 +1,11 @@
+services:
+  webui:
+    container_name: audio_notes_local_webui
+    volumes:
+      - ./storage-local:/app/storage
+      - ./modelscope:/root/.cache/modelscope
+
+  pg:
+    container_name: audio_notes_local_pg
+    volumes:
+      - ./postgresql-local:/var/lib/postgresql/data

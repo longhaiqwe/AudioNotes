@@ -1,11 +1,14 @@
 .env
-.chainlit/
+.chainlit/*
+!.chainlit/config.toml
 __pycache__/
 *.py[cod]
 *$py.class
 
 storage/
 postgresql/
+storage-local/
+postgresql-local/
 modelscope/
 
 .venv/

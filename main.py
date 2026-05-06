@@ -5,10 +5,11 @@ import chainlit as cl
 from io import BytesIO
 from chainlit.types import ThreadDict
 from chainlit.element import ElementBased
+from chainlit.input_widget import Select
 from loguru import logger
 from app.services import data_layer
-from app.services.asr_groq import groq_asr
-from app.services.groq_llm import chat_with_groq
+from app.services.asr import transcribe
+from app.services.llm import chat as chat_with_llm
 
 from app.utils import utils
 
@@ -21,6 +22,60 @@ logger.remove()
 logger.add(f"{utils.storage_dir('logs')}/log.log", rotation="500 MB")
 
 data_layer.init()
+
+
+def default_asr_provider() -> str:
+    provider = os.getenv("ASR_PROVIDER", "groq").lower()
+    return provider if provider in {"groq", "funasr"} else "groq"
+
+
+def default_llm_provider() -> str:
+    provider = os.getenv("LLM_PROVIDER", "groq").lower()
+    return provider if provider in {"groq", "ollama"} else "groq"
+
+
+def apply_chat_settings(settings: dict):
+    asr_provider = settings.get("asr_provider") or default_asr_provider()
+    llm_provider = settings.get("llm_provider") or default_llm_provider()
+    cl.user_session.set("asr_provider", asr_provider)
+    cl.user_session.set("llm_provider", llm_provider)
+    logger.info(f"chat settings updated: asr={asr_provider}, llm={llm_provider}")
+
+
+async def setup_chat_settings():
+    settings = await cl.ChatSettings(
+        [
+            Select(
+                id="asr_provider",
+                label="ASR 引擎",
+                items={
+                    "Groq Whisper（云端）": "groq",
+                    "FunASR（本地）": "funasr",
+                },
+                initial_value=cl.user_session.get("asr_provider") or default_asr_provider(),
+                description="选择音频/视频转文字服务。Groq 需要 GROQ_API_KEY；FunASR 会在本地加载模型。",
+            ),
+            Select(
+                id="llm_provider",
+                label="LLM 引擎",
+                items={
+                    "Groq LLM（云端）": "groq",
+                    "Ollama（本地）": "ollama",
+                },
+                initial_value=cl.user_session.get("llm_provider") or default_llm_provider(),
+                description="选择结构化笔记与问答所使用的大模型服务。",
+            ),
+        ]
+    ).send()
+    apply_chat_settings(settings)
+
+
+def current_asr_provider() -> str:
+    return cl.user_session.get("asr_provider") or default_asr_provider()
+
+
+def current_llm_provider() -> str:
+    return cl.user_session.get("llm_provider") or default_llm_provider()
 
 
 @cl.password_auth_callback
@@ -37,6 +92,7 @@ def password_auth_callback(username: str, password: str):
 
 @cl.on_chat_start
 async def on_chat_start():
+    await setup_chat_settings()
     files = None
     while files == None:
         msg = cl.AskFileMessage(
@@ -53,7 +109,7 @@ async def on_chat_start():
     async def transcribe_file(uploaded_file):
         await msg.stream_token(f"文件 《{uploaded_file.name}》 上传成功, 识别中...\n")
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, groq_asr.transcribe, uploaded_file.path)
+        result = await loop.run_in_executor(None, transcribe, uploaded_file.path, current_asr_provider())
         await msg.stream_token(f"## 识别结果 \n{result}\n")
         return result
 
@@ -67,7 +123,7 @@ async def on_chat_start():
             await msg.stream_token(content)
 
         await msg.stream_token("## 整理笔记\n\n")
-        await chat_with_groq(messages, callback=on_message)
+        await chat_with_llm(messages, callback=on_message, provider=current_llm_provider())
 
     asr_result = await transcribe_file(file)
     await summarize_notes(asr_result)
@@ -93,7 +149,7 @@ async def on_audio_end(elements: list[ElementBased]):
         f.write(audio_buffer.read())
 
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, groq_asr.transcribe, file_path)
+    result = await loop.run_in_executor(None, transcribe, file_path, current_asr_provider())
     await cl.Message(
         content=result,
         type="user_message",
@@ -117,8 +173,12 @@ async def chat():
     async def on_message(content):
         await msg.stream_token(content)
 
-    await chat_with_groq(messages, callback=on_message)
+    await chat_with_llm(messages, callback=on_message, provider=current_llm_provider())
     await msg.send()
+
+@cl.on_settings_update
+async def on_settings_update(settings: dict):
+    apply_chat_settings(settings)
 
 
 @cl.on_message
@@ -128,4 +188,4 @@ async def on_message(message: cl.Message):
 
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
-    pass
+    await setup_chat_settings()

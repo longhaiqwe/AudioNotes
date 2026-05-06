@@ -7,3 +7,8 @@ asyncpg
 sqlalchemy[asyncio]
 sqlalchemy_utils
 psycopg2-binary
+torch
+funasr
+modelscope
+torchaudio
+openai

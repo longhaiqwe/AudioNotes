@@ -1,9 +1,10 @@
 services:
   webui:
-    build: .
+    build:
+      context: .
     container_name: audio_notes_webui
     ports:
-      - 15433:15433
+      - ${WEBUI_HOST_PORT:-15433}:15433
     volumes:
       - ./storage:/app/storage
     restart: always
@@ -11,35 +12,47 @@ services:
       - audio_notes
     environment:
       # 登录账号
-      - USERNAME=admin
-      - PASSWORD=admin
-      - CHAINLIT_AUTH_SECRET=${CHAINLIT_AUTH_SECRET}
+      USERNAME: admin
+      PASSWORD: admin
+      CHAINLIT_AUTH_SECRET: ${CHAINLIT_AUTH_SECRET}
       # 数据库配置(需要与下面pg服务的配置一致)
-      - POSTGRES_USER=username
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=audio_notes
-      - POSTGRES_HOST=pg
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: audio_notes
+      POSTGRES_HOST: pg
       # Groq 配置
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - GROQ_WHISPER_MODEL=${GROQ_WHISPER_MODEL:-whisper-large-v3-turbo}
-      - GROQ_WHISPER_LANGUAGE=${GROQ_WHISPER_LANGUAGE:-zh}
-      - GROQ_LLM_MODEL=${GROQ_LLM_MODEL:-llama-3.3-70b-versatile}
+      ASR_PROVIDER: ${ASR_PROVIDER:-groq}
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_WHISPER_MODEL: ${GROQ_WHISPER_MODEL:-whisper-large-v3-turbo}
+      GROQ_WHISPER_LANGUAGE: ${GROQ_WHISPER_LANGUAGE:-zh}
+      GROQ_LLM_MODEL: ${GROQ_LLM_MODEL:-llama-3.3-70b-versatile}
+      # Ollama 配置（本地模式使用）
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2:7b}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-ollama}
     depends_on:
-      - pg
+      pg:
+        condition: service_healthy
   pg:
     image: postgres:12.19-bullseye
     container_name: audio_notes_pg
     restart: always
     ports:
-      - 15432:5432
+      - ${POSTGRES_HOST_PORT:-15432}:5432
     networks:
       - audio_notes
     environment:
       # 这里的配置只有首次运行生效。修改后，重启镜像是不会生效的。需要把持久化数据删除再重启，才有效果
-      - POSTGRES_USER=username
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=audio_notes
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: audio_notes
     volumes:
       - ./postgresql:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U username -d audio_notes"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 networks:
   audio_notes:

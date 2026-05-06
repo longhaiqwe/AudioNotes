@@ -1,0 +1,15 @@
+services:
+  webui:
+    build:
+      context: .
+    volumes:
+      - ./storage:/app/storage
+      - ./modelscope:/root/.cache/modelscope
+    environment:
+      ASR_PROVIDER: funasr
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2:7b}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-ollama}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
