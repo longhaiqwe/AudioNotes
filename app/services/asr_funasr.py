@@ -14,8 +14,9 @@ class FunASR:
         self.__model = AutoModel(model="paraformer-zh",
                                  vad_model="fsmn-vad",
                                  punc_model="ct-punc",
-                                 spk_model="cam++",
+                                 # spk_model="cam++",  # 说话人识别模型，需要额外 ~300MB 内存，Docker 内存不足时可禁用
                                  log_level="error",
+                                 disable_update=True,
                                  hub="ms"  # hub：表示模型仓库，ms为选择modelscope下载，hf为选择huggingface下载。
                                  )
         logger.debug("funasr :: init model complete")

@@ -10,6 +10,7 @@ from loguru import logger
 from app.services import data_layer
 from app.services.asr import transcribe
 from app.services.llm import chat as chat_with_llm
+from app.services.transcript_polish import polish_transcript
 
 from app.utils import utils
 
@@ -97,8 +98,7 @@ async def on_chat_start():
     while files == None:
         msg = cl.AskFileMessage(
             content="请上传一个**音频/视频**文件",
-            # accept=["audio/*", "video/*"],
-            accept=["*/*"],
+            accept=["audio/*", "video/*"],
             max_size_mb=10240,
         )
         files = await msg.send()
@@ -126,7 +126,19 @@ async def on_chat_start():
         await chat_with_llm(messages, callback=on_message, provider=current_llm_provider())
 
     asr_result = await transcribe_file(file)
-    await summarize_notes(asr_result)
+
+    async def polish(text):
+        await msg.stream_token("## 润色文稿\n\n")
+
+        async def on_polish(content):
+            await msg.stream_token(content)
+
+        polished = await polish_transcript(text, callback=on_polish, provider=current_llm_provider())
+        await msg.stream_token("\n\n")
+        return polished
+
+    polished_result = await polish(asr_result)
+    await summarize_notes(polished_result)
     await msg.send()
 
 

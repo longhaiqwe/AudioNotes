@@ -2,10 +2,10 @@
 
 ## 支持云端 Groq 与本地 FunASR/Ollama 的音视频转结构化笔记系统
 
-能够快速提取音视频的内容，并且调用大模型进行整理，成为一份结构化的markdown笔记，方便快速阅读
+能够快速提取音视频的内容，使用 LLM 对转录文稿进行轻度润色（修正口误、补全标点、分段），再整理成结构化的 Markdown 笔记，方便快速阅读。
 
 - **云端模式（默认）**
-  - ASR：Groq Whisper API（`whisper-large-v3-turbo`）
+  - ASR：Groq Whisper API（`whisper-large-v3`）
   - LLM：Groq Chat API（`llama-3.3-70b-versatile`）
 - **本地模式**
   - ASR：FunASR（`paraformer-zh`）
@@ -13,6 +13,11 @@
 - **网页内切换**
   - 在 Chainlit 页面右上角设置中选择 ASR 引擎和 LLM 引擎
   - 同一套服务内可在 Groq 和本地模式之间切换
+- **处理流程**
+  1. 音视频文件上传 → ASR 转录
+  2. LLM 润色文稿（修正口误、补标点、分段，保留原意）
+  3. LLM 整理为结构化笔记
+  4. 可继续对话，就笔记内容提问
 
 Groq Cloud: https://console.groq.com
 FunASR: https://github.com/modelscope/FunASR
@@ -69,12 +74,25 @@ OLLAMA_API_KEY=ollama
 ```bash
 docker compose up --build
 ```
-docker 启动后，访问 http://localhost:15433/，在页面右上角设置中选择：
+Docker 启动后，访问 http://localhost:15433/，在页面右上角设置中选择：
 
 - ASR 引擎：`Groq Whisper（云端）` 或 `FunASR（本地）`
 - LLM 引擎：`Groq LLM（云端）` 或 `Ollama（本地）`
 
 > 登录账号为 admin，密码为 admin （可以在 docker-compose.yml 文件里面修改）
+
+#### 数据持久化
+
+Docker Compose 已配置以下 volume 挂载，数据保存在项目目录下，重建容器不会丢失：
+
+| 宿主机路径 | 容器路径 | 用途 |
+|---|---|---|
+| `./storage` | `/app/storage` | 上传的音视频文件 |
+| `./modelscope_cache` | `/root/.cache/modelscope` | FunASR 模型缓存（首次约 1GB，之后免下载） |
+| `./postgresql` | `/var/lib/postgresql/data` | PostgreSQL 数据库 |
+
+> 首次使用 FunASR 时会从 ModelScope 下载模型，需要容器能访问外网。下载完成后模型缓存在本地，后续重建容器无需重新下载。
+
 #### 本地 FunASR + Ollama 默认模式
 
 如果希望容器启动后默认选择本地模式，可以叠加本地 compose：
@@ -91,7 +109,7 @@ OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
 
 #### 非 Docker 本地部署 📦
 
-需要有可访问的 postgresql 数据库
+需要有可访问的 PostgreSQL 数据库，以及系统安装 `ffmpeg`（用于音频分片）。
 
 ```bash
 conda create -n AudioNotes python=3.10 -y

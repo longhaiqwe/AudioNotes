@@ -10,6 +10,7 @@ postgresql/
 storage-local/
 postgresql-local/
 modelscope/
+modelscope_cache/
 
 .venv/
 venv/

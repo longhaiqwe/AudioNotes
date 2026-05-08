@@ -5,7 +5,9 @@ FROM python:3.10-slim-bullseye
 WORKDIR /app
 RUN chmod 777 /app
 
-ENV PYTHONPATH="/app"
+ENV PYTHONPATH="/app" \
+    PIP_DEFAULT_TIMEOUT=300 \
+    PIP_RETRIES=10
 
 # Copy only the requirements.txt first to leverage Docker cache
 COPY requirements.txt .

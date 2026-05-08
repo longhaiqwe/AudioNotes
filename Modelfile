@@ -1,0 +1,2 @@
+FROM qwen3:8b
+SYSTEM "/no_think 你是一个高效的助手，直接回答问题，不需要长篇推理。"

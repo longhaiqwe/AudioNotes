@@ -1,6 +1,7 @@
 import math
 import os
 import shutil
+import subprocess
 import tempfile
 
 from groq import Groq
@@ -23,6 +24,63 @@ class GroqASR:
             self._client = Groq(api_key=api_key)
         return self._client
 
+    def _probe_duration_seconds(self, audio_file: str) -> float:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                audio_file,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return float(result.stdout.strip())
+
+    def _export_audio_chunk(
+        self,
+        audio_file: str,
+        chunk_path: str,
+        start_seconds: float,
+        duration_seconds: float,
+    ):
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-nostdin",
+                    "-y",
+                    "-ss",
+                    f"{start_seconds:.3f}",
+                    "-t",
+                    f"{duration_seconds:.3f}",
+                    "-i",
+                    audio_file,
+                    "-map",
+                    "0:a:0",
+                    "-vn",
+                    "-acodec",
+                    "libmp3lame",
+                    "-q:a",
+                    "4",
+                    chunk_path,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            error = exc.stderr.strip() or exc.stdout.strip()
+            raise RuntimeError(f"Failed to split media with ffmpeg: {error}") from exc
+
     def _split_audio(self, audio_file: str) -> tuple[list[str], str | None]:
         """若文件超过 24MB，自动按时长切片并导出为 mp3。
         返回 (chunk_files, temp_dir)，若无需切片则 temp_dir=None。"""
@@ -35,27 +93,28 @@ class GroqASR:
             f"size {file_size / 1024 / 1024:.1f}MB > 24MB, splitting into chunks..."
         )
 
-        audio = AudioSegment.from_file(audio_file)
-        total_ms = len(audio)
+        total_seconds = self._probe_duration_seconds(audio_file)
+        if total_seconds <= 0:
+            raise ValueError(f"Could not determine media duration: {audio_file}")
+
         # 按文件大小比例估算需要切成几片，并多加一片余量
         num_chunks = math.ceil(file_size / MAX_FILE_SIZE_BYTES) + 1
-        chunk_ms = math.ceil(total_ms / num_chunks)
+        chunk_seconds = math.ceil(total_seconds / num_chunks)
 
         temp_dir = tempfile.mkdtemp(prefix="audionotes_")
         chunk_files = []
 
         for i in range(num_chunks):
-            start = i * chunk_ms
-            end = min((i + 1) * chunk_ms, total_ms)
-            if start >= total_ms:
+            start = i * chunk_seconds
+            end = min((i + 1) * chunk_seconds, total_seconds)
+            if start >= total_seconds:
                 break
-            chunk = audio[start:end]
             chunk_path = os.path.join(temp_dir, f"chunk_{i:03d}.mp3")
-            chunk.export(chunk_path, format="mp3", parameters=["-q:a", "4"])
+            self._export_audio_chunk(audio_file, chunk_path, start, end - start)
             chunk_files.append(chunk_path)
             logger.info(
                 f"groq asr :: chunk {i + 1}/{num_chunks}: "
-                f"{(end - start) / 1000:.1f}s, {os.path.getsize(chunk_path) / 1024 / 1024:.1f}MB"
+                f"{end - start:.1f}s, {os.path.getsize(chunk_path) / 1024 / 1024:.1f}MB"
             )
 
         return chunk_files, temp_dir
@@ -71,7 +130,7 @@ class GroqASR:
 
     def transcribe(self, audio_file: str) -> str:
         client = self._get_client()
-        model = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
+        model = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3")
         language = os.getenv("GROQ_WHISPER_LANGUAGE", "zh")
 
         logger.info(f"groq asr :: start transcribe: {audio_file}")

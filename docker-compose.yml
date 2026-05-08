@@ -7,6 +7,7 @@ services:
       - ${WEBUI_HOST_PORT:-15433}:15433
     volumes:
       - ./storage:/app/storage
+      - ./modelscope_cache:/root/.cache/modelscope
     restart: always
     networks:
       - audio_notes
@@ -24,7 +25,7 @@ services:
       ASR_PROVIDER: ${ASR_PROVIDER:-groq}
       LLM_PROVIDER: ${LLM_PROVIDER:-groq}
       GROQ_API_KEY: ${GROQ_API_KEY}
-      GROQ_WHISPER_MODEL: ${GROQ_WHISPER_MODEL:-whisper-large-v3-turbo}
+      GROQ_WHISPER_MODEL: ${GROQ_WHISPER_MODEL:-whisper-large-v3}
       GROQ_WHISPER_LANGUAGE: ${GROQ_WHISPER_LANGUAGE:-zh}
       GROQ_LLM_MODEL: ${GROQ_LLM_MODEL:-llama-3.3-70b-versatile}
       # Ollama 配置（本地模式使用）
