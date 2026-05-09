@@ -8,7 +8,7 @@ async def chat_with_groq(messages: list[dict], callback=None) -> str:
     if not api_key:
         raise ValueError("GROQ_API_KEY environment variable is not set")
 
-    model = os.getenv("GROQ_LLM_MODEL", "llama-3.3-70b-versatile")
+    model = os.getenv("GROQ_LLM_MODEL", "qwen/qwen3-32b")
     logger.debug(f"chat with groq, model: {model}")
 
     client = AsyncGroq(api_key=api_key)

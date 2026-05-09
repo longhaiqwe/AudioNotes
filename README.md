@@ -6,7 +6,7 @@
 
 - **云端模式（默认）**
   - ASR：Groq Whisper API（`whisper-large-v3`）
-  - LLM：Groq Chat API（`llama-3.3-70b-versatile`）
+  - LLM：Groq Chat API（`qwen/qwen3-32b`）
 - **本地模式**
   - ASR：FunASR（`paraformer-zh`）
   - LLM：Ollama OpenAI-compatible API（默认 `qwen2:7b`）
