@@ -30,7 +30,7 @@ services:
       GROQ_LLM_MODEL: ${GROQ_LLM_MODEL:-qwen/qwen3-32b}
       # Ollama 配置（本地模式使用）
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2:7b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-ollama}
     depends_on:
       pg:

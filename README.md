@@ -9,7 +9,7 @@
   - LLM：Groq Chat API（`qwen/qwen3-32b`）
 - **本地模式**
   - ASR：FunASR（`paraformer-zh`）
-  - LLM：Ollama OpenAI-compatible API（默认 `qwen2:7b`）
+  - LLM：Ollama OpenAI-compatible API（默认 `qwen3:8b`）
 - **网页内切换**
   - 在 Chainlit 页面右上角设置中选择 ASR 引擎和 LLM 引擎
   - 同一套服务内可在 Groq 和本地模式之间切换
@@ -52,7 +52,7 @@ GROQ_API_KEY=your_groq_api_key_here
 本地模式需要先安装并启动 Ollama，然后拉取模型：
 
 ```bash
-ollama pull qwen2:7b
+ollama pull qwen3:8b
 ```
 
 本地模式可在网页设置中选择 `FunASR（本地）` 和 `Ollama（本地）`。如果希望默认进入本地模式，可配置：
@@ -61,7 +61,7 @@ ollama pull qwen2:7b
 ASR_PROVIDER=funasr
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434/v1
-OLLAMA_MODEL=qwen2:7b
+OLLAMA_MODEL=qwen3:8b
 OLLAMA_API_KEY=ollama
 ```
 
