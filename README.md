@@ -69,6 +69,21 @@ OLLAMA_API_KEY=ollama
 
 推荐使用 Docker 部署。当前镜像已内置 Groq、FunASR、Ollama 客户端所需依赖，启动后可在网页设置中切换云端或本地模式。
 
+#### macOS 用户：安装 Colima
+
+macOS 上建议使用 [Colima](https://github.com/abiosoft/colima) 作为 Docker 运行时（替代 Docker Desktop）。启动时需要分配足够内存并开启网络地址，否则容器可能因内存不足反复重启，且无法访问宿主机上的 Ollama：
+
+```bash
+# 安装 Colima
+brew install colima docker docker-compose
+
+# 启动（分配 8GB 内存、4 CPU，开启网络地址以支持容器访问宿主机服务）
+colima start --memory 8 --cpu 4 --network-address
+```
+
+> `--memory 8` 和 `--cpu 4` 根据机器配置调整，FunASR 模型加载至少需要 4GB 内存。
+> `--network-address` 使容器能通过 `host.docker.internal` 访问宿主机服务（如 Ollama），本地模式必须开启。
+
 #### 统一镜像启动
 
 ```bash
